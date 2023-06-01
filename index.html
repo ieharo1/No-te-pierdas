@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Rastreo en Tiempo Real</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-database.js"></script>
+  <script src="firebase.js"></script>
+  <script src="app.js"></script>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.5.0/mapbox-gl.css" rel="stylesheet" />
+  <script>
+    mapboxgl.accessToken = 'pk.eyJ1IjoiemFja2hhcm8xIiwiYSI6ImNsaTh0YzlwajB6engzbHI0c2p0dGdobnMifQ.qvmwbmpNxA1VAm5At9RSlQ';
+
+    window.addEventListener('DOMContentLoaded', function() {
+      // Verificar si el navegador admite la Battery Status API
+      if ('getBattery' in navigator || ('battery' in navigator && 'Promise' in window)) {
+        navigator.getBattery()
+          .then(function(battery) {
+            updateBatteryStatus(battery);
+            battery.addEventListener('levelchange', function() {
+              updateBatteryStatus(battery);
+            });
+          })
+          .catch(function(error) {
+            console.error('Error al acceder a la información de la batería:', error);
+          });
+      } else {
+        console.error('La Battery Status API no está soportada en este navegador.');
+      }
+
+      function updateBatteryStatus(battery) {
+        var batteryLevel = Math.round(battery.level * 100);
+        document.getElementById('battery-level').style.height = batteryLevel + '%';
+        document.getElementById('battery-label').innerText = 'Porcentaje de carga: ' + batteryLevel + '%';
+      
+        
+        if (batteryLevel >= 70 && batteryLevel <= 100) {
+          document.getElementById('battery-level').style.backgroundColor = '#4CAF50'; // Verde
+        } else if (batteryLevel >= 30 && batteryLevel <= 69) {
+          document.getElementById('battery-level').style.backgroundColor = '#FFC107'; // Amarillo
+        } else {
+          document.getElementById('battery-level').style.backgroundColor = '#FF0000'; // Rojo
+        }
+
+        // Obtener ubicación en tiempo real
+        if ('geolocation' in navigator) {
+          navigator.geolocation.watchPosition(function(position) {
+            var latitude = position.coords.latitude;
+            var longitude = position.coords.longitude;
+            document.getElementById('location').innerText = 'Geolocalización actual: ' + latitude.toFixed(6) + ', ' + longitude.toFixed(6);
+            
+            // Mostrar ubicación en el mapa
+            var map = new mapboxgl.Map({
+              container: 'map',
+              style: 'mapbox://styles/mapbox/streets-v11',
+              center: [longitude, latitude],
+              zoom: 14
+            });
+
+            new mapboxgl.Marker().setLngLat([longitude, latitude]).addTo(map);
+            // Guardar la ubicación en Firebase
+            guardarUbicacionFirebase(latitude, longitude);
+            guardarDatosBateria(batteryLevel);
+
+          }, function(error) {
+            console.error('Error al obtener la ubicación:', error);
+          });
+        } else {
+          console.error('La API de geolocalización no está soportada en este navegador.');
+        }
+          
+      }
+    });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h1>Rastreo en Tiempo Real</h1>
+    <div class="battery">
+      <div id="battery-level" class="battery-level"></div>
+    </div>
+    <div id="battery-label" class="battery-label"></div>
+    <div id="location" class="location"></div>
+    <div id="map" class="map"></div>
+  </div>
+</body>
+</html>
